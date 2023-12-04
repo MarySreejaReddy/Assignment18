@@ -1,57 +1,60 @@
-# app.py
-
-from flask import Flask, jsonify, request
+from flask import Flask, request, jsonify
 import json
 
 app = Flask(__name__)
 
-# Load tweet data from the JSON file
-with open('tweets.json', 'r') as file:
-    tweets_data = json.load(file)
+# Load or initialize tweets
+try:
+    with open('100tweets.json') as f:
+        tweets = json.load(f)
+except FileNotFoundError:
+    tweets = []
 
-# 2.) Hello World at the base URL
+# Save tweets to a JSON file
+def save_tweets():
+    with open('100tweets.json', 'w') as outfile:
+        json.dump(tweets, outfile, indent=2)
+
+# Endpoint to return "Hello World"
 @app.route('/')
 def hello_world():
-    return 'Hello World!'
+    return 'Hello World.'
 
-# 3.) GET endpoint to return ALL tweets
+# Endpoint to return all tweets
 @app.route('/tweets', methods=['GET'])
 def get_all_tweets():
-    return jsonify(tweets_data)
+    return jsonify(tweets)
 
-# 4.) Modify the above endpoint to filter tweets using a query parameter
+# Endpoint to filter tweets based on a hashtag
 @app.route('/tweets_filtered', methods=['GET'])
 def get_filtered_tweets():
-    keyword = request.args.get('keyword')
-    filtered_tweets = [tweet for tweet in tweets_data if keyword.lower() in tweet['text'].lower()]
-    return jsonify(filtered_tweets)
+    try:
+        hashtag = request.args.get('hashtag')
+        if hashtag is None:
+            raise ValueError("Missing 'hashtag' parameter")
+        
+        filtered_tweets = [tweet for tweet in tweets if hashtag.lower() in tweet.get('hashtags', '').lower()]
+        return jsonify(filtered_tweets)
+    except ValueError as e:
+        return str(e), 400  # Bad Request
 
-# 5.) GET endpoint for a specific tweet by ID
+# Endpoint to return a specific tweet by ID
 @app.route('/tweet/<int:tweet_id>', methods=['GET'])
 def get_tweet_by_id(tweet_id):
     try:
-        tweet = next(tweet for tweet in tweets_data if tweet['id'] == tweet_id)
-        return jsonify(tweet)
-    except StopIteration:
-        return jsonify({'error': 'Tweet not found'}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        tweet = next((t for t in tweets if t['id_str'] == tweet_id), None)
+        if tweet:
+            return jsonify(tweet)
+        else:
+            raise ValueError("Tweet not found")
+    except ValueError as e:
+        return str(e), 404  # Not Found
 
-# 6.) Run the Flask app
 if __name__ == '__main__':
     app.run(debug=True)
 
-# 7.) Curl requests to test endpoints:
-"""
-# Hello World
-curl http://localhost:5000/
-
-# Get all tweets
-curl http://localhost:5000/tweets
-
-# Get filtered tweets
-curl http://localhost:5000/tweets_filtered?keyword=winter
-
-# Get tweet by ID (replace 1 with the desired tweet ID)
-curl http://localhost:5000/tweet/1
-"""
+#My curl commands
+#curl http://localhost:5000/          (returns the message "Hello World.")
+#curl http://localhost:5000/tweets    (returns ALL of the tweets)
+#curl http://localhost:5000/tweets_filtered?hashtag=THEkarliehustle    (the tweets returned by a hashtag query parameter)
+#curl http://localhost:5000/tweet/1360000000000000000    (returns the JSON data for that particular id tweet)
